@@ -32,71 +32,50 @@ module X
           error   = options.delete(:e)
           html_options = options.delete(:html){ Hash.new }
 
-          if xeditable?(object)
-            model   = object.class.model_name.param_key
-            nid     = options.delete(:nid)
-            nested  = options.delete(:nested)
-            title   = options.delete(:title) do
-              klass = nested ? object.class.const_get(nested.to_s.classify) : object.class
-              klass.human_attribute_name(method)
-            end
+          model   = object.class.model_name.element
+          nid     = options.delete(:nid)
+          nested  = options.delete(:nested)
+          title   = options.delete(:title) do
+            klass = nested ? object.class.const_get(nested.to_s.singularize.capitalize) : object.class
+            klass.human_attribute_name(method)
+          end
 
-            output_value = output_value_for(value)
-            css_list = options.delete(:class).to_s.split(/\s+/).unshift('editable')
-            css_list << classes[output_value] if classes
-            type = options.delete(:type){ default_type_for(value) }
-            css   = css_list.compact.uniq.join(' ')
-            tag   = options.delete(:tag){ 'span' }
-            placeholder = options.delete(:placeholder){ title }
+          output_value = output_value_for(value)
+          css_list = options.delete(:class).to_s.split(/\s+/).unshift('editable')
+          css_list << classes[output_value] if classes
+          type = options.delete(:type){ default_type_for(value) }
+          css   = css_list.compact.uniq.join(' ')
+          tag   = options.delete(:tag){ 'span' }
+          placeholder = options.delete(:placeholder){ title }
 
-            # any remaining options become data attributes
-            data  = {
-              type:   type,
-              model:  model,
-              name:   method,
-              value:  ( type == 'wysihtml5' ? Base64.encode64(output_value) : output_value ), 
-              placeholder: placeholder,
-              classes: classes,
-              source: source,
-              url:    url,
-              nested: nested,
-              nid:    nid
-            }.merge(options.symbolize_keys)
+          # any remaining options become data attributes
+          data  = {
+            type:   type,
+            model:  model,
+            name:   method,
+            value:  ( type == 'wysihtml5' ? Base64.encode64(output_value) : output_value ),
+            placeholder: placeholder,
+            classes: classes,
+            source: source,
+            url:    url,
+            nested: nested,
+            nid:    nid
+          }.merge(options.symbolize_keys)
 
-            data.reject!{|_, value| value.nil?}
+          data.reject!{|_, value| value.nil?}
 
-            html_options.update({
-              class: css,
-              title: title,
-              data: data
-            })
+          html_options.update({
+                                class: css,
+                                title: title,
+                                data: data
+                              })
 
-            content_tag tag, html_options do
-              if %w(select checklist).include?(data[:type].to_s) && !source.is_a?(String)
-                source = normalize_source(source)
-                content = source.detect { |t| output_value == output_value_for(t[0]) }
-                content.present? ? content[1] : ""
-              else
-                safe_join(source_values_for(value, source), tag(:br))
-              end
-            end
-          else
-            error || safe_join(source_values_for(value, source), tag(:br))
+          content_tag tag, html_options do
+            safe_join(source_values_for(value, source), tag(:br)) unless %w(select checklist).include? data[:type]
           end
         end
 
         private
-
-        def normalize_source(source)
-          return [] unless source
-          source.map do |el|
-            if el.is_a? Array
-              el
-            else
-              [el[:value], el[:text]]
-            end
-          end
-        end
 
         def output_value_for(value)
           value = case value
@@ -152,9 +131,11 @@ module X
               if source.is_a?(Array) && source.first.is_a?(String) && source.size == 2
                 { '1' => source[0], '0' => source[1] }
               end
-            else
+            when String
               if source.is_a?(Array) && source.first.is_a?(String)
-                source.map { |v| { value: v, text: v } }
+                source.inject({}){|hash, key| hash.merge(key => key)}
+              elsif source.is_a?(Hash)
+                source
               end
             end
 
