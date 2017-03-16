@@ -43,7 +43,7 @@ module X
           output_value = output_value_for(value)
           css_list = options.delete(:class).to_s.split(/\s+/).unshift('editable')
           css_list << classes[output_value] if classes
-          type = options.delete(:type){ default_type_for(value) }
+          type  = options.delete(:type){ default_type_for(value, source) }
           css   = css_list.compact.uniq.join(' ')
           tag   = options.delete(:tag){ 'span' }
           placeholder = options.delete(:placeholder){ title }
@@ -106,12 +106,14 @@ module X
           end
         end
 
-        def default_type_for(value)
+        def default_type_for(value, source)
           case value
           when TrueClass, FalseClass
             'select'
           when Array
             'checklist'
+          when Integer
+            source.is_a?(Hash) ? 'select' : 'text'
           else
             'text'
           end
